@@ -23,12 +23,14 @@ require(rsample)
 require(pls)
 require(glmnet)
 require(factoextra)
-require(corrplot)
+
 ```
 
 ```{r message=FALSE} 
 
-BMI <- read_csv("C:/Users/12488/Downloads/bodyfat.csv",  show_col_types = FALSE)
+BMI <- read_csv("/Documents/Body Fat/bodyfat.csv",  show_col_types = FALSE)
+
+
 
 BMI2<-as.data.frame(BMI)
 
@@ -57,7 +59,7 @@ BMI2$Neck [is.na(BMI2$Neck)]<- median(BMI2$Neck, na.rm = TRUE)
 str(BMI2)
 
 ```
-3) You may encounter missing (NULL) data in some features. Implement an imputation strategy to improve the performance of your machine learning. 
+1) You may encounter missing (NULL) data in some features. Implement an imputation strategy to improve the performance of your machine learning. 
 
 I replaced any zero or NULL in the dataset with an NA and subsequently the median for that dimension. 
 
@@ -84,7 +86,7 @@ ggplot(BMI2) +
 
 
 ```
-1) Exploratory Data Analysis of the dataset.  This should include visualizations that you find meaningful/helpful in learning about this new dataset.
+2) Exploratory Data Analysis of the dataset.  This should include visualizations that you find meaningful/helpful in learning about this new dataset.
 
 I used a simple histogram to look at outliers that don't seem plausible. This lead me to change the .07 value to the median value for BMI. There is a chance that they meant 70% body fat, but I didn't want to make assumptions. Another concern was an impossible BMI of 165. Looking further into the problem, it appears that the 29.5 entry for height should have been entered in the BMI column. After setting the height to the median of 70 the BMI was recalculated to 29.4.
 
@@ -160,7 +162,7 @@ corrplot(cor(BMI3), method = "shade", col = COL2('PuOr', 10))
 
 
 ```
-2) A correlation Analysis of the dataset.  Which data elements (if any) are highly correlated with one another?  What might be the best way to handle the ones that are (if any)?
+3) A correlation Analysis of the dataset.  Which data elements (if any) are highly correlated with one another?  What might be the best way to handle the ones that are (if any)?
 
 This is the before and after correlation. We can see that the high negative correlation between BMI and height was neutralized after dealing with 164 outlier/data entry error.
 
