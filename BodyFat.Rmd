@@ -1,0 +1,359 @@
+---
+title: "BodyFat-MAISE"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+require(readr)
+require(dplyr)
+require(ggplot2)
+require(esquisse)
+require(tidyverse)
+require(e1071)
+require(data.table)
+require(corrplot)
+require(caret)
+require(glmnet)
+require(MASS)
+require(rsample)
+require(pls)
+require(glmnet)
+require(factoextra)
+require(corrplot)
+```
+
+```{r message=FALSE} 
+
+BMI <- read_csv("C:/Users/12488/Downloads/bodyfat.csv",  show_col_types = FALSE)
+
+BMI2<-as.data.frame(BMI)
+
+str(BMI2)
+
+BMI2$Neck  <-as.numeric(BMI2$Neck)
+BMI2$Chest  <-as.numeric(BMI2$Chest)
+BMI2$Abdomen  <-as.numeric(BMI2$Abdomen)
+BMI2$Hip  <-as.numeric(BMI2$Hip)
+BMI2$Thigh  <-as.numeric(BMI2$Thigh)
+str(BMI2)
+
+
+# median imputation
+BMI2 <- BMI2 %>% replace(.=="NULL", NA ) # replace with NA
+BMI2[BMI2 == 0] <- NA
+
+
+BMI2$BodyFat [is.na(BMI2$BodyFat)]<- median(BMI2$BodyFat, na.rm = TRUE)
+BMI2$Neck [is.na(BMI2$Neck)]<- median(BMI2$Neck, na.rm = TRUE)
+BMI2$Chest [is.na(BMI2$Chest)]<- median(BMI2$Chest, na.rm = TRUE)
+BMI2$Abdomen [is.na(BMI2$Abdomen)]<- median(BMI2$Abdomen, na.rm = TRUE)
+BMI2$Hip [is.na(BMI2$Hip)]<- median(BMI2$Hip, na.rm = TRUE)
+BMI2$Thigh [is.na(BMI2$Thigh)]<- median(BMI2$Thigh, na.rm = TRUE)
+BMI2$Neck [is.na(BMI2$Neck)]<- median(BMI2$Neck, na.rm = TRUE)
+str(BMI2)
+
+```
+3) You may encounter missing (NULL) data in some features. Implement an imputation strategy to improve the performance of your machine learning. 
+
+I replaced any zero or NULL in the dataset with an NA and subsequently the median for that dimension. 
+
+```{r message=FALSE} 
+
+library(ggplot2)
+
+ggplot(BMI2) +
+ aes(x = BodyFat) +
+ geom_histogram(bins = 30L, fill = "#112446") +
+ theme_minimal()
+
+ggplot(BMI2) +
+ aes(x = Height) +
+ geom_histogram(bins = 30L, fill = "#112446") +
+ theme_minimal()
+
+ggplot(BMI2) +
+ aes(x = BMI) +
+ geom_histogram(bins = 30L, fill = "#112446") +
+ theme_minimal()
+
+
+
+
+```
+1) Exploratory Data Analysis of the dataset.  This should include visualizations that you find meaningful/helpful in learning about this new dataset.
+
+I used a simple histogram to look at outliers that don't seem plausible. This lead me to change the .07 value to the median value for BMI. There is a chance that they meant 70% body fat, but I didn't want to make assumptions. Another concern was an impossible BMI of 165. Looking further into the problem, it appears that the 29.5 entry for height should have been entered in the BMI column. After setting the height to the median of 70 the BMI was recalculated to 29.4.
+
+
+
+```{r message=FALSE} 
+
+#The .07 value for body fat sounded implausible so I switched it to the median
+# I found someone with an impossible BMI. They have  the height of a little person listed with the weight of a regular size person. I changed the height to the median height and recalculated the BMI--which now looks like the same value as the height entry error.
+
+BMI3 <- BMI2
+BMI3[BMI3 == 0.7] <- NA
+median(BMI2$Height)
+median(BMI2$BMI)
+#BMI3[BMI3$Height == 70,"Height"] <- 29.5
+#setDT(BMI3)[BMI3 == 165.6018386 & Height == 70, Height := paste0(Height, "1")]
+
+BMI3$Height[BMI3$Height == "29.5"] <- 70
+BMI3$BMI[BMI3$BMI == "165.6018386"] <- 29.4
+BMI3$BodyFat [is.na(BMI3$BodyFat)]<- median(BMI3$BodyFat, na.rm = TRUE)
+BMIPlot<- BMI3
+BMI5<- BMI3
+
+
+```
+
+
+
+```{r message=FALSE} 
+
+# create buckets for age and set as factor
+labs <- c(paste(seq(0, 95, by = 10), seq(0 + 10 - 1, 100 - 1, by = 10),
+                sep = "-"), paste(100, "+", sep = ""))
+labs
+      
+BMIPlot$Age <- cut(BMIPlot$Age, breaks = c(seq(0, 100, by = 10), Inf), labels = labs, right = FALSE)
+BMIPlot$Age<-as.factor(BMIPlot$Age)
+str(BMIPlot)
+colSums(is.na(BMIPlot))
+```
+
+
+
+```{r message=FALSE} 
+
+library(ggplot2)
+
+ggplot(BMIPlot) +
+ aes(x = Age, y = Abdomen) +
+ geom_boxplot(fill = "#4682B4") +
+ theme_minimal()
+
+ggplot(BMIPlot) +
+ aes(x = Age, y = Wrist) +
+ geom_boxplot(fill = "#4682B4") +
+ theme_minimal()
+
+ggplot(BMIPlot) +
+ aes(x = Age, y = BodyFat) +
+ geom_boxplot(fill = "#4682B4") +
+
+ theme_minimal()
+
+```
+I then created buckets for Age to better view the distribution of the data in boxplots. It looks like the median abdomen, wrist, and body fat measurements increase as we age. 
+
+
+```{r} 
+corrplot(cor(BMI2), method = "shade", col = COL2('PuOr', 10))
+
+corrplot(cor(BMI3), method = "shade", col = COL2('PuOr', 10))
+
+
+
+```
+2) A correlation Analysis of the dataset.  Which data elements (if any) are highly correlated with one another?  What might be the best way to handle the ones that are (if any)?
+
+This is the before and after correlation. We can see that the high negative correlation between BMI and height was neutralized after dealing with 164 outlier/data entry error.
+
+We see a high correlation with Body fat and abdomen, BMI and Abdomen, and Chest and Abdomen. Weight's high correlation with everything but height and Age seems like a given. There seems to be multicollinearity.
+```{r}
+
+
+# normalizing data 
+pca <- prcomp(BMI3, center=TRUE, scale = TRUE)
+
+print(pca)
+summary(pca)
+eig.val<-get_eigenvalue(pca)
+eig.val
+
+fviz_eig(pca, col.var="blue")
+
+
+
+```
+
+Performed a PCA for dimension reduction to standardized the variables setting the mean to 0 and the standard deviation to 1.  Found that PC1 explains 62% of the variation in the data. The Scree plot also indicates that the first two have the highest impact.
+
+
+``` {r}
+PC1 <- pca$rotation[,1]
+PC1_scores <- abs(PC1)
+PC1_scores_ordered <- sort(PC1_scores, decreasing = TRUE)
+names(PC1_scores_ordered)
+```
+Weight is the most important feature Followed by hip, bmi, abdomen, etc.
+
+```{r}
+
+# creating Standardization function
+standardize = function(x){
+  z <- (x - mean(x)) / sd(x)
+  return( z)
+}
+  
+
+data4 <-
+  apply(data3, 2, standardize)
+  
+data5<-as.data.frame(data4)
+
+```
+
+```{r}
+set.seed(443)
+sample_size <- floor(0.75 * nrow(data5))
+
+training_index <- sample(seq_len(nrow(data5)), size = sample_size)
+
+train <- data5[training_index, ]
+test <- data5[-training_index, ]
+
+# Predictor
+x <- model.matrix(BodyFat~., train)[,-1]
+# Response
+y <- train$BodyFat
+
+```
+
+
+
+
+
+```{r}
+# Ridge Regression
+set.seed(443)
+cv.ridge <- cv.glmnet(x, y, alpha = 0)
+
+cv.ridge$lambda.min
+model.ridge <- glmnet(x, y, alpha = 0, lambda = cv.ridge$lambda.min)
+coef(model.ridge)
+
+
+x.test.ridge <- model.matrix(BodyFat ~., test)[,-1]
+predictions.ridge <- model.ridge %>% predict(x.test.ridge) %>% as.vector()
+data.frame(RMSE.Ridge = RMSE(predictions.ridge, test$BodyFat),
+Rsquare.Ridge = caret::R2(predictions.ridge, test$BodyFat))
+
+```
+Most of the coefficients are pushed closer to zero
+
+```{r}
+set.seed(443)
+#lasso
+cv.lasso <- cv.glmnet(x, y, alpha = 1)
+cv.lasso$lambda.min
+model.lasso <- glmnet(x, y, alpha = 1, lambda = cv.lasso$lambda.min)
+
+coef(model.lasso)
+
+x.test.lasso <- model.matrix(BodyFat ~., test)[,-1]
+predictions.lasso <- model.lasso %>%predict(x.test.lasso) %>% as.vector()
+data.frame(
+RMSE.lasso = RMSE(predictions.lasso, test$BodyFat),
+Rsquare.lasso = caret::R2(predictions.lasso, test$BodyFat))
+
+
+```
+```{r}
+set.seed(443)
+# Elastic Net
+model.ELnet <- train(
+    BodyFat ~., data = train, method = "glmnet",
+    trControl = trainControl("cv", number = 10),
+    tuneLength = 10)
+
+model.ELnet$bestTune
+  
+coef(model.ELnet$finalModel, model.ELnet$bestTune$lambda)
+x.test.net <- model.matrix(BodyFat ~., test)[,-1]
+predictions.net <- model.ELnet %>% predict(x.test.net)
+
+data.frame(
+RMSE.ELnet = RMSE(predictions.net, test$BodyFat),
+Rsquare.ELnet = caret::R2(predictions.net, test$BodyFat))
+
+```{r}
+set.seed(555)
+sample_size <- floor(0.75 * nrow(data5))
+
+training_index <- sample(seq_len(nrow(data5)), size = sample_size)
+
+train <- data5[training_index, ]
+test <- data5[-training_index, ]
+
+# Predictor
+x <- model.matrix(BodyFat~., train)[,-1]
+# Response
+y <- train$BodyFat
+
+```
+
+
+
+
+
+```{r}
+# Ridge Regression
+set.seed(555)
+cv.ridge <- cv.glmnet(x, y, alpha = 0)
+
+cv.ridge$lambda.min
+model.ridge <- glmnet(x, y, alpha = 0, lambda = cv.ridge$lambda.min)
+coef(model.ridge)
+
+
+x.test.ridge <- model.matrix(BodyFat ~., test)[,-1]
+predictions.ridge <- model.ridge %>% predict(x.test.ridge) %>% as.vector()
+data.frame(RMSE.Ridge = RMSE(predictions.ridge, test$BodyFat),
+Rsquare.Ridge = caret::R2(predictions.ridge, test$BodyFat))
+
+```
+Most of the coefficients are pushed closer to zero. Since we are trying to predict bodyfat that will be our dependent variable.
+
+```{r}
+set.seed(555)
+#lasso
+cv.lasso <- cv.glmnet(x, y, alpha = 1)
+cv.lasso$lambda.min
+model.lasso <- glmnet(x, y, alpha = 1, lambda = cv.lasso$lambda.min)
+
+coef(model.lasso)
+
+x.test.lasso <- model.matrix(BodyFat ~., test)[,-1]
+predictions.lasso <- model.lasso %>%predict(x.test.lasso) %>% as.vector()
+data.frame(
+RMSE.lasso = RMSE(predictions.lasso, test$BodyFat),
+Rsquare.lasso = caret::R2(predictions.lasso, test$BodyFat))
+
+
+```
+```{r}
+set.seed(555)
+# Elastic Net
+model.ELnet <- train(
+    BodyFat ~., data = train, method = "glmnet",
+    trControl = trainControl("cv", number = 10),
+    tuneLength = 10)
+
+model.ELnet$bestTune
+  
+coef(model.ELnet$finalModel, model.ELnet$bestTune$lambda)
+x.test.net <- model.matrix(BodyFat ~., test)[,-1]
+predictions.net <- model.ELnet %>% predict(x.test.net)
+
+data.frame(
+RMSE.ELnet = RMSE(predictions.net, test$BodyFat),
+Rsquare.ELnet = caret::R2(predictions.net, test$BodyFat))
+
+
+

@@ -1,0 +1,30 @@
+The data:
+
+BodyFat  (Percent body fat from Siri's (1956) equation)
+Age (years)
+Weight (lbs)
+Height (inches)
+BMI (weight in kg/ height in m^2)
+Neck circumference (cm)
+Chest circumference (cm)
+Abdomen circumference (cm)
+Hip circumference (cm)
+Thigh circumference (cm)
+Knee circumference (cm)
+Ankle circumference (cm)
+Biceps (extended) circumference (cm)
+Forearm circumference (cm)
+Wrist circumference (cm)
+
+
+Problems:
+
+Using your programming language / IDE of choice, please perform:
+
+1) Exploratory Data Analysis of the dataset.  This should include visualizations that you find meaningful/helpful in learning about this new dataset.
+
+2) A correlation Analysis of the dataset.  Which data elements (if any) are highly correlated with one another?  What might be the best way to handle the ones that are (if any)?
+
+3) You may encounter missing (NULL) data in some features. Implement an imputation strategy to improve the performance of your machine learning.  
+
+4) Using a machine learning algorithm of your choice, build a model that predicts BodyFat.  Describe your training/testing approach.  Choose what you feel to be a reasonable measure of model accuracy/effectiveness.
